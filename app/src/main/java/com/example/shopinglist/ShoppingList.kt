@@ -10,13 +10,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,7 +48,7 @@ data class ShoppingItem(
 
 @Composable
 fun ShoppingListApp() {
-    val sItem = remember { mutableStateOf(listOf<ShoppingItem>()) }
+    var sItem by remember { mutableStateOf(listOf<ShoppingItem>()) }
     var showDialog by remember { mutableStateOf(false) }
     var itemName by remember { mutableStateOf("") }
     var itemQuantity by remember { mutableStateOf("") }
@@ -60,14 +67,30 @@ fun ShoppingListApp() {
         ) {
             Text("Add Item")
         }
-        Box(modifier = Modifier.background(color = Color.Red)) {
+        Box() {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                items(sItem.value) {
-                    ShoppingListItem(item = it, {}, {})
+                items(sItem) { item ->
+                    if (item.isEditing) {
+
+                        ShoppingItemEditor(item, onEditComplete = { editedName, editedQuantity ->
+                            sItem = sItem.map { it.copy(isEditing = false) }
+                            val editedItem = sItem.find { it.id == item.id }
+                            editedItem?.let {
+                                it.name = editedName
+                                it.quantity = editedQuantity.toString()
+                            }
+                        })
+                    } else {
+                        ShoppingListItem(item = item, onEditClick = {
+                            sItem = sItem.map { it.copy(isEditing = it.id == item.id) }
+                        }, onDeleteClick = {
+                            sItem = sItem - item
+                        })
+                    }
                 }
             }
         }
@@ -85,11 +108,11 @@ fun ShoppingListApp() {
                     Button(onClick = {
                         if (itemName.isNotBlank()) {
                             val item = ShoppingItem(
-                                id = sItem.value.size + 1,
+                                id = sItem.size + 1,
                                 name = itemName,
                                 quantity = itemQuantity,
                             )
-                            sItem.value += item
+                            sItem += item
                             showDialog = false
                             itemName = ""
                             itemQuantity = ""
@@ -123,6 +146,7 @@ fun ShoppingListApp() {
                         value = itemQuantity,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp),
@@ -133,6 +157,49 @@ fun ShoppingListApp() {
                 }
             }
         )
+    }
+}
+
+@Composable
+fun ShoppingItemEditor(item: ShoppingItem, onEditComplete: (String, Int) -> Unit) {
+    var editedName by remember { mutableStateOf(item.name) }
+    var editedQuality by remember { mutableStateOf(item.quantity.toString()) }
+    var isEditing by remember { mutableStateOf(item.isEditing) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            BasicTextField(
+                value = editedName,
+                onValueChange = {
+                    editedName = it
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .wrapContentSize()
+                    .padding(8.dp)
+            )
+            BasicTextField(
+                value = editedQuality,
+                onValueChange = {
+                    editedQuality = it
+                },
+                singleLine = true,
+                modifier = Modifier
+                    .wrapContentSize()
+                    .padding(8.dp)
+            )
+        }
+        Button(onClick = {
+            isEditing = false
+            onEditComplete(editedName, editedQuality.toIntOrNull() ?: 1)
+        }) {
+            Text("Save")
+        }
     }
 }
 
@@ -149,7 +216,17 @@ fun ShoppingListItem(
                 border = BorderStroke(2.dp, color = Color(0XFF018786)),
                 shape = RoundedCornerShape(12),
             ),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(item.name, modifier = Modifier.padding(8.dp))
+        Text("Qty: ${item.quantity}", modifier = Modifier.padding(8.dp))
+        Row(modifier = Modifier.padding(8.dp)) {
+            IconButton(onClick = onEditClick) {
+                Icon(imageVector = Icons.Default.Edit, contentDescription = null)
+            }
+            IconButton(onClick = onDeleteClick) {
+                Icon(imageVector = Icons.Default.Delete, contentDescription = null)
+            }
+        }
     }
 }
